@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Missing Word Listening Quiz</title>
+<style>
+body{font-family:Calibri,sans-serif;background:#0b1020;color:#f5faff;margin:0;padding:20px;display:flex;justify-content:center;transition:background .3s,color .3s}
+body.light{background:#f0f0f0;color:#111}
+.container{width:95%;max-width:900px;background:#151b30;padding:2.5vw;border-radius:12px;border:1px solid #3b6cff;box-shadow:0 0 18px rgba(0,0,0,.5);transition:background .3s,border-color .3s}
+body.light .container{background:#fff;border-color:#888}
+h1{text-align:center;margin:0 0 10px;font-size:clamp(1.4rem,4vw,2.2rem)}
+button{cursor:pointer;border:none;border-radius:6px;padding:.6em 1em;font-size:clamp(.8rem,2.5vw,1rem);font-weight:600}
+.btn-play{background:#00c896;color:#001018}
+.btn-next{background:#3b6cff;color:#fff}
+.btn-check{background:#ffcc66;color:#201400}
+.btn-small{background:#444b63;color:#fff}
+body.light .btn-small{background:#ddd;color:#111}
+.progress-bar{width:100%;height:12px;background:#2a314d;border-radius:6px;overflow:hidden;margin:10px 0 20px}
+.progress-fill{height:100%;width:0;background:#3b6cff;transition:width .4s ease}
+.sentence{font-size:clamp(1rem,3.2vw,1.6rem);margin:16px 0 6px;line-height:1.5;min-height:48px;white-space:pre-wrap}
+.blank-box{display:inline-block;border-bottom:3px solid currentColor;min-width:6ch;padding:0 .2em;margin:0 .15em}
+#lettersInfo{font-size:.9rem;opacity:.8;margin-bottom:10px}
+.fade{opacity:0;transition:opacity .4s ease}
+.fade.show{opacity:1}
+.input-display{margin:10px 0;display:flex;align-items:center;gap:8px}
+.input-display input{flex:1;padding:8px 10px;border-radius:6px;border:1px solid #3b6cff;background:#0b1020;color:#f5faff;font-size:clamp(1rem,3vw,1.4rem)}
+body.light .input-display input{background:#fff;color:#111;border-color:#888}
+.keyboard{margin:10px 0 12px;display:flex;flex-direction:column;gap:6px}
+.kb-row{display:flex;justify-content:center;gap:6px}
+.kb-key{background:#1f2740;color:#f5faff;padding:.6em .7em;border-radius:6px;font-size:clamp(.9rem,2.4vw,1.1rem);min-width:32px;text-align:center}
+body.light .kb-key{background:#e0e0e0;color:#111}
+.feedback{min-height:22px;margin-top:6px;font-weight:600}
+.feedback.correct{color:#00e6a8}
+.feedback.wrong{color:#ff6b8a}
+#summaryScreen{display:none;text-align:center;padding:40px}
+#summaryScreen h2{font-size:2rem;margin-bottom:10px}
+#summaryList{text-align:left;max-width:600px;margin:20px auto;line-height:1.6}
+.confetti{position:fixed;width:8px;height:8px;background:red;top:50%;left:50%;opacity:0;pointer-events:none}
+</style>
+</head>
+
+<body>
+<div class="container" id="quizContainer">
+
+<button class="btn-small" id="restartBtn" style="float:right;margin-left:10px">Restart</button>
+<button class="btn-small" id="themeToggle" style="float:right;margin-left:10px">Light/Dark</button>
+<button class="btn-small" id="layoutToggle" style="float:right">QWERTY</button>
+
+<h1>Missing Word Listening Quiz</h1>
+
+<div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+<div class="audio-controls">
+<button class="btn-play" id="playBtn">▶ Play audio</button>
+<audio id="audioPlayer"></audio>
+</div>
+
+<div id="fadeWrapper" class="fade">
+<div class="sentence" id="sentenceText"></div>
+<div id="lettersInfo"></div>
+</div>
+
+<div class="input-display">
+<label>Your word:</label>
+<input id="answerInput" type="text" readonly>
+<button class="btn-small" id="clearBtn">Clear</button>
+<button class="btn-small" id="backspaceBtn">⌫</button>
+</div>
+
+<div class="keyboard" id="keyboard"></div>
+
+<div style="margin-bottom:6px;display:flex;gap:10px">
+<button class="btn-small" id="prevBtn">Previous</button>
+<button class="btn-check" id="checkBtn">Check</button>
+<button class="btn-next" id="nextBtn">Next</button>
+</div>
+
+<div class="feedback" id="feedback"></div>
+<div class="answer-reveal" id="answerReveal"></div>
+<div class="score" id="scoreInfo">Score: 0 / 0</div>
+
+</div>
+
+<div id="summaryScreen"></div>
+
+<script>
+const pool=[
+{ id:1, prompt:"My [blank] freezes every time I open too many tabs.", answer:"computer" },
+{ id:2, prompt:"She brings her [blank] to the café to work.", answer:"laptop" },
+{ id:3, prompt:"The [blank] turns off when I move the cable.", answer:"monitor" },
+{ id:4, prompt:"Press the [blank] button to restart the device.", answer:"power" },
+{ id:5, prompt:"The [blank] gets dusty if I don’t clean it.", answer:"keyboard" },
+{ id:6, prompt:"My [blank] stops working when the battery is low.", answer:"mouse" },
+{ id:7, prompt:"The graphics [blank] gets hot when I run heavy programs.", answer:"processor" },
+{ id:8, prompt:"This game runs better with a stronger [blank].", answer:"card" },
+{ id:9, prompt:"The [blank] needs to be reset every few days.", answer:"router" },
+{ id:10, prompt:"The [blank] disconnects when there’s a storm.", answer:"modem" },
+{ id:11, prompt:"My hard [blank] is almost full of photos.", answer:"drive" },
+{ id:12, prompt:"The [blank] makes a loud noise when the PC heats up.", answer:"fan" },
+{ id:13, prompt:"The [blank] turns on automatically during calls.", answer:"webcam" },
+{ id:14, prompt:"The [blank] doesn’t pick up my voice well.", answer:"microphone" },
+{ id:15, prompt:"I use [blank] when I don’t want to disturb anyone.", answer:"headphones" },
+{ id:16, prompt:"The [blank] jams every time I try to print a PDF.", answer:"printer" },
+{ id:17, prompt:"The [blank] takes a while to process high‑quality images.", answer:"scanner" },
+{ id:18, prompt:"My [blank] opens slowly when my Wi‑Fi is weak.", answer:"browser" },
+{ id:19, prompt:"The [blank] engine gives me different results each time.", answer:"search" },
+{ id:20, prompt:"My [blank] logs me out automatically after an hour.", answer:"account" },
+{ id:21, prompt:"The [blank] blocks some websites at work.", answer:"firewall" },
+{ id:22, prompt:"The [blank] scans my computer every morning.", answer:"antivirus" },
+{ id:23, prompt:"My [blank] vibrates nonstop with notifications.", answer:"smartphone" },
+{ id:24, prompt:"The [blank] charges very slowly with this cable.", answer:"tablet" },
+{ id:25, prompt:"The SIM [blank] doesn’t work after I drop the phone.", answer:"card" },
+{ id:26, prompt:"The battery [blank] gets worse when it’s cold outside.", answer:"life" },
+{ id:27, prompt:"The [blank] updates automatically every night.", answer:"dataset" },
+{ id:28, prompt:"The [blank] recommends videos I don’t like.", answer:"algorithm" },
+{ id:29, prompt:"The [blank] cleans the living room while I’m at work.", answer:"robot" },
+{ id:30, prompt:"Save your [blank] before the app closes.", answer:"document" }
+];
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+let quizOrder=shuffle([...pool]).slice(0,10);
+let currentIndex=0;
+let score=0;
+let answered=false;
+let history=[];
+let currentLayout="qwerty";
+
+const sentenceText=document.getElementById("sentenceText");
+const lettersInfo=document.getElementById("lettersInfo");
+const audioPlayer=document.getElementById("audioPlayer");
+const playBtn=document.getElementById("playBtn");
+const answerInput=document.getElementById("answerInput");
+const feedback=document.getElementById("feedback");
+const answerReveal=document.getElementById("answerReveal");
+const clearBtn=document.getElementById("clearBtn");
+const backspaceBtn=document.getElementById("backspaceBtn");
+const checkBtn=document.getElementById("checkBtn");
+const nextBtn=document.getElementById("nextBtn");
+const prevBtn=document.getElementById("prevBtn");
+const keyboard=document.getElementById("keyboard");
+const scoreInfo=document.getElementById("scoreInfo");
+const progressFill=document.getElementById("progressFill");
+const fadeWrapper=document.getElementById("fadeWrapper");
+const quizContainer=document.getElementById("quizContainer");
+const summaryScreen=document.getElementById("summaryScreen");
+const layoutToggle=document.getElementById("layoutToggle");
+
+const qwertyLayout=[
+["Q","W","E","R","T","Y","U","I","O","P"],
+["A","S","D","F","G","H","J","K","L"],
+["Z","X","C","V","B","N","M","-"]
+];
+
+const azertyLayout=[
+["A","Z","E","R","T","Y","U","I","O","P"],
+["Q","S","D","F","G","H","J","K","L","M"],
+["W","X","C","V","B","N","-"]
+];
+
+function buildKeyboard(){
+keyboard.innerHTML="";
+const layout=currentLayout==="qwerty"?qwertyLayout:azertyLayout;
+layout.forEach(row=>{
+const rowDiv=document.createElement("div");
+rowDiv.className="kb-row";
+row.forEach(ch=>{
+const btn=document.createElement("button");
+btn.className="kb-key";
+btn.textContent=ch;
+btn.onclick=()=>handleInputChar(ch.toLowerCase());
+rowDiv.appendChild(btn);
+});
+keyboard.appendChild(rowDiv);
+});
+}
+
+function handleInputChar(ch){
+if(answered)return;
+answerInput.value+=ch;
+}
+
+function loadItem(i){
+fadeWrapper.classList.remove("show");
+setTimeout(()=>fadeWrapper.classList.add("show"),20);
+
+const item=quizOrder[i];
+const ans=item.answer;
+
+sentenceText.innerHTML=item.prompt.replace("[blank]",
+    `<span class="blank-box" style="min-width:${Math.max(ans.length,5)}ch"></span>`
+);
+
+lettersInfo.textContent=`The word has ${ans.length} characters.`;
+audioPlayer.src=String(item.id).padStart(2,"0")+".mp3";
+
+answerInput.value="";
+feedback.textContent="";
+answerReveal.textContent="";
+answered=false;
+
+scoreInfo.textContent=`Score: ${score} / ${i}`;
+progressFill.style.width=(i/quizOrder.length)*100+"%";
+
+if(history[i]){
+answerInput.value=history[i].input;
+answered=history[i].answered;
+if(answered){
+if(history[i].correct){
+feedback.textContent="Correct!";
+feedback.className="feedback correct";
+}else{
+feedback.textContent="Wrong.";
+feedback.className="feedback wrong";
+answerReveal.textContent=`Correct answer: ${item.answer}`;
+}
+}
+}
+}
+
+playBtn.onclick=()=>{audioPlayer.currentTime=0;audioPlayer.play();};
+
+clearBtn.onclick=()=>{if(!answered){answerInput.value="";}};
+backspaceBtn.onclick=()=>{if(!answered){answerInput.value=answerInput.value.slice(0,-1);}};
+
+checkBtn.onclick=()=>{
+if(answered)return;
+const item=quizOrder[currentIndex];
+const user=answerInput.value.trim().toLowerCase();
+const correct=item.answer.toLowerCase();
+if(user===correct){
+feedback.textContent="Correct!";
+feedback.className="feedback correct";
+score++;
+}else{
+feedback.textContent="Wrong.";
+feedback.className="feedback wrong";
+answerReveal.textContent=`Correct answer: ${item.answer}`;
+}
+answered=true;
+history[currentIndex]={input:answerInput.value,answered:true,correct:user===correct};
+scoreInfo.textContent=`Score: ${score} / ${currentIndex+1}`;
+};
+
+nextBtn.onclick=()=>{if(currentIndex<quizOrder.length-1){currentIndex++;loadItem(currentIndex);}else finishQuiz();};
+prevBtn.onclick=()=>{if(currentIndex>0){currentIndex--;loadItem(currentIndex);}};
+
+function finishQuiz(){
+quizContainer.style.display="none";
+summaryScreen.style.display="block";
+let msg="",emoji="";
+if(score>=9){msg="Excellent!";emoji="🎉🔥";}
+else if(score>=7){msg="Great job!";emoji="😄👍";}
+else if(score>=5){msg="Not bad!";emoji="🙂";}
+else{msg="Keep practicing!";emoji="😬📚";}
+summaryScreen.innerHTML=`
+<h2>${score} / ${quizOrder.length} ${emoji}</h2>
+<h3>${msg}</h3>
+<div id="summaryList">
+${quizOrder.map(q=>`<div><strong>${q.prompt}</strong> → ${q.answer}</div>`).join("")}
+</div>
+<button class="btn-next" onclick="restartQuiz()">Restart Quiz</button>
+`;
+burstConfetti();
+}
+
+function burstConfetti(){
+for(let i=0;i<80;i++){
+const c=document.createElement("div");
+c.className="confetti";
+document.body.appendChild(c);
+const angle=Math.random()*360;
+const dist=80+Math.random()*120;
+const x=Math.cos(angle)*dist;
+const y=Math.sin(angle)*dist;
+c.style.background=`hsl(${Math.random()*360},100%,50%)`;
+c.animate([{transform:"translate(0,0)",opacity:1},{transform:`translate(${x}px,${y}px)`,opacity:0}],{duration:800+Math.random()*600,easing:"ease-out"});
+setTimeout(()=>c.remove(),1500);
+}
+}
+
+function restartQuiz(){
+quizOrder=shuffle([...pool]).slice(0,10);
+currentIndex=0;
+score=0;
+history=[];
+summaryScreen.style.display="none";
+quizContainer.style.display="block";
+loadItem(0);
+}
+
+const themeToggle=document.getElementById("themeToggle");
+if(localStorage.getItem("theme")==="light")document.body.classList.add("light");
+themeToggle.onclick=()=>{
+document.body.classList.toggle("light");
+localStorage.setItem("theme",document.body.classList.contains("light")?"light":"dark");
+};
+
+layoutToggle.onclick=()=>{
+currentLayout=currentLayout==="qwerty"?"azerty":"qwerty";
+layoutToggle.textContent=currentLayout==="qwerty"?"QWERTY":"AZERTY";
+buildKeyboard();
+};
+
+document.addEventListener("keydown",e=>{
+if(summaryScreen.style.display==="block")return;
+if(!answered){
+if(e.key.length===1 && /[a-zA-Z\- ]/.test(e.key)){
+handleInputChar(e.key.toLowerCase());
+}
+if(e.key==="Backspace")backspaceBtn.click();
+if(e.key==="Delete")clearBtn.click();
+}
+if(e.key==="Enter"){
+if(!answered)checkBtn.click();
+else nextBtn.click();
+}
+if(e.key==="ArrowRight")nextBtn.click();
+if(e.key==="ArrowLeft")prevBtn.click();
+});
+
+buildKeyboard();
+loadItem(0);
+</script>
+
+</body>
+</html>
